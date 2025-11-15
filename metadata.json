@@ -1,0 +1,5 @@
+{
+  "name": "Homeopathic Remedy Manager",
+  "description": "An intuitive web application for homeopathic practitioners to manage a master remedy inventory, create fillable forms for new clients, and generate customized prescription lists based on selected remedies.",
+  "requestFramePermissions": []
+}
