@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Remedy } from "../types";
 
@@ -58,9 +59,11 @@ export async function getAiSuggestions(symptoms: string, remedies: Remedy[]): Pr
 
     if (result && Array.isArray(result.remedies)) {
       const validAbbreviations = new Set(remedies.map(r => r.abbreviation));
-      // FIX: Add a type predicate `: abbr is string` to ensure the filter returns a properly typed `string[]`.
-      // This prevents downstream errors where array elements are incorrectly treated as `unknown`.
-      return result.remedies.filter((abbr: unknown): abbr is string => typeof abbr === 'string' && validAbbreviations.has(abbr));
+      // FIX: Refactored to use .filter() with a type guard for better type inference and clarity.
+      // This resolves a potential issue where TypeScript might not correctly narrow the type of `abbr` within the `reduce` callback.
+      return result.remedies.filter((abbr: unknown): abbr is string => {
+        return typeof abbr === 'string' && validAbbreviations.has(abbr);
+      });
     }
     
     return [];
@@ -71,5 +74,31 @@ export async function getAiSuggestions(symptoms: string, remedies: Remedy[]): Pr
         throw new Error(`Failed to get suggestions from AI. It's possible the API key is invalid or the service is unavailable.`);
     }
     throw new Error("An unknown error occurred while fetching AI suggestions.");
+  }
+}
+
+
+export async function getRemedyInfo(remedyName: string): Promise<string> {
+  if (!ai) {
+    throw new Error("Gemini API key is not configured.");
+  }
+
+  const prompt = `Provide a concise list of the top 3-5 key indicating symptoms for the homeopathic remedy "${remedyName}".
+  Format the output as a simple, unstyled HTML string with a main heading for the remedy name and an unordered list for the symptoms.
+  For example: <h3>Arnica Montana</h3><ul><li>Sore, bruised feeling all over.</li><li>Fear of being touched or approached.</li><li>Bed feels too hard.</li></ul>
+  Do not include any other text, just the HTML.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    return response.text.trim();
+  } catch (error) {
+    console.error(`Error fetching info for ${remedyName}:`, error);
+    if (error instanceof Error) {
+        throw new Error(`Failed to get information from AI for ${remedyName}.`);
+    }
+    throw new Error("An unknown error occurred while fetching remedy information.");
   }
 }

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { RemedySelectionForm } from './components/RemedySelectionForm';
 import { ClientPrescription } from './components/ClientPrescription';
@@ -97,6 +98,29 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
+       <style>{`
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in-fast {
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        .remedy-tooltip-content h3 {
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 600; /* font-semibold */
+            color: #93c5fd; /* text-blue-300 */
+            margin-bottom: 0.5rem; /* mb-2 */
+        }
+        .remedy-tooltip-content ul {
+            list-style-type: disc;
+            padding-left: 1.25rem; /* pl-5 */
+            margin: 0;
+        }
+        .remedy-tooltip-content li {
+            margin-bottom: 0.25rem; /* mb-1 */
+        }
+      `}</style>
       <header className="bg-gradient-to-r from-cyan-500 to-blue-600 p-4 shadow-lg text-center">
          <div className="container mx-auto flex justify-between items-center">
             <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white text-left flex-1">

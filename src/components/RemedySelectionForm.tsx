@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import type { Remedy, Potency, ClientSelections } from '../types';
 import { POTENCIES } from '../types';
-import { getAiSuggestions } from './AISuggestionEngine';
+import { getAiSuggestions, getRemedyInfo } from './AISuggestionEngine';
 
 // Define types for sorting
 type SortKey = 'name' | 'abbreviation';
@@ -22,6 +22,12 @@ interface RemedySelectionFormProps {
 const SearchIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+  </svg>
+);
+
+const InformationCircleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
   </svg>
 );
 
@@ -68,6 +74,11 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
   const [aiSuggestions, setAiSuggestions] = useState<Set<string>>(new Set());
   const [aiError, setAiError] = useState<string | null>(null);
 
+  // Tooltip State
+  const [tooltipContent, setTooltipContent] = useState<Record<string, { data?: string; error?: string }>>({});
+  const [activeTooltip, setActiveTooltip] = useState<{ srNo: string; position: { top: number; left: number } } | null>(null);
+  const hoverTimeoutRef = useRef<number | null>(null);
+  const isFetchingRef = useRef<Set<string>>(new Set());
 
   const handleGetAiSuggestions = async () => {
     setIsAiLoading(true);
@@ -122,6 +133,45 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
     setSortConfig({ key, direction });
   };
 
+  const handleRowMouseEnter = (remedy: Remedy, event: React.MouseEvent) => {
+    if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = window.setTimeout(() => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const top = rect.top + rect.height / 2; // Vertically center on the row
+        const left = rect.right + 10;
+        
+        // Adjust if tooltip would go off-screen
+        const tooltipWidth = 320; // Corresponds to max-w-sm
+        const adjustedLeft = (left + tooltipWidth > window.innerWidth) ? (rect.left - tooltipWidth - 10) : left;
+
+        setActiveTooltip({ srNo: remedy.srNo, position: { top, left: adjustedLeft } });
+
+        if (!tooltipContent[remedy.srNo] && !isFetchingRef.current.has(remedy.srNo)) {
+            isFetchingRef.current.add(remedy.srNo);
+            getRemedyInfo(remedy.name)
+                .then(info => {
+                    setTooltipContent(prev => ({ ...prev, [remedy.srNo]: { data: info } }));
+                })
+                .catch(error => {
+                    const errorMessage = error instanceof Error ? error.message : "Could not load info.";
+                    setTooltipContent(prev => ({ ...prev, [remedy.srNo]: { error: errorMessage } }));
+                })
+                .finally(() => {
+                    isFetchingRef.current.delete(remedy.srNo);
+                });
+        }
+    }, 200);
+  };
+
+  const handleRowMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+    }
+    setActiveTooltip(null);
+  };
+
   const sortedAndFilteredRemedies = useMemo(() => {
     const lowercasedFilter = searchTerm.toLowerCase();
     const filtered = searchTerm
@@ -134,18 +184,42 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
     return filtered.sort((a, b) => {
         const key = sortConfig.key;
         const direction = sortConfig.direction === 'asc' ? 1 : -1;
-        // Using localeCompare for robust string sorting
         return a[key].localeCompare(b[key]) * direction;
     });
-}, [remedies, searchTerm, sortConfig]);
+  }, [remedies, searchTerm, sortConfig]);
   
   const selectionCount = Object.keys(selections).length;
   const isFormValid = patientName.trim() !== '' && selectionCount > 0;
 
   return (
     <div className="space-y-6">
+      {activeTooltip && (
+        <div
+            className="fixed z-50 max-w-sm p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl text-slate-300 animate-fade-in-fast"
+            style={{
+                top: `${activeTooltip.position.top}px`,
+                left: `${activeTooltip.position.left}px`,
+                transform: `translateY(-50%)`,
+            }}
+            role="tooltip"
+        >
+            {tooltipContent[activeTooltip.srNo]?.data ? (
+                <div className="remedy-tooltip-content" dangerouslySetInnerHTML={{ __html: tooltipContent[activeTooltip.srNo].data! }} />
+            ) : tooltipContent[activeTooltip.srNo]?.error ? (
+                <p className="text-red-400">{tooltipContent[activeTooltip.srNo].error}</p>
+            ) : (
+                <div className="flex items-center justify-center p-2">
+                    <svg className="animate-spin h-5 w-5 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="ml-3 text-sm">Loading info...</span>
+                </div>
+            )}
+        </div>
+      )}
       <div className="p-6 bg-slate-800/50 rounded-lg shadow-xl animate-fade-in">
-        <h2 className="text-xl font-semibold text-cyan-300 mb-4">Client & Remedy Selection</h2>
+        <h2 className="text-xl font-semibold text-cyan-300 mb-4">Client Information</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label htmlFor="patientName" className="block text-sm font-medium text-slate-300 mb-1">
@@ -256,19 +330,20 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
                           const isSelected = !!selections[remedy.srNo];
                           const isAiSuggested = aiSuggestions.has(remedy.srNo);
                           const rowClasses = [
-                            'transition-all',
+                            'transition-all group',
                             isSelected ? 'bg-cyan-900/30' : 'hover:bg-slate-700/50',
                             isAiSuggested ? 'ring-2 ring-inset ring-cyan-500/80 bg-slate-700/50' : ''
                           ].filter(Boolean).join(' ');
 
                           return (
-                            <tr key={remedy.srNo} className={rowClasses}>
+                            <tr key={remedy.srNo} className={rowClasses} onMouseEnter={(e) => handleRowMouseEnter(remedy, e)} onMouseLeave={handleRowMouseLeave}>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-slate-200 flex items-center">
-                                        {remedy.name}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-slate-200">{remedy.name}</span>
                                         {isAiSuggested && (
                                             <span className="ml-2 px-2 py-0.5 text-xs font-semibold text-cyan-900 bg-cyan-400 rounded-full" title="Suggested by AI">AI</span>
                                         )}
+                                        <InformationCircleIcon className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
