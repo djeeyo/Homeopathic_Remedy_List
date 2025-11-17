@@ -98,14 +98,24 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
-       <style>{`
+      <style>{`
         @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInDelay {
+          0% { opacity: 0; transform: translateY(-10px); }
+          50% { opacity: 0; transform: translateY(-10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInFast {
             from { opacity: 0; transform: scale(0.95); }
             to { opacity: 1; transform: scale(1); }
         }
-        .animate-fade-in-fast {
-            animation: fadeIn 0.2s ease-in-out;
-        }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .animate-fade-in-delay { animation: fadeInDelay 0.7s ease-out forwards; }
+        .animate-fade-in-fast { animation: fadeInFast 0.2s ease-in-out; }
+        
         .remedy-tooltip-content h3 {
             font-size: 1.125rem; /* text-lg */
             font-weight: 600; /* font-semibold */
@@ -116,9 +126,13 @@ const App: React.FC = () => {
             list-style-type: disc;
             padding-left: 1.25rem; /* pl-5 */
             margin: 0;
+            font-size: 0.875rem; /* text-sm */
         }
         .remedy-tooltip-content li {
             margin-bottom: 0.25rem; /* mb-1 */
+        }
+         .remedy-tooltip-content strong {
+            color: #67e8f9; /* text-cyan-300 */
         }
       `}</style>
       <header className="bg-gradient-to-r from-cyan-500 to-blue-600 p-4 shadow-lg text-center">

@@ -14,20 +14,20 @@ if (API_KEY) {
 
 export async function getAiSuggestions(symptoms: string, remedies: Remedy[]): Promise<string[]> {
   if (!ai) {
-    throw new Error("Gemini API key is not configured. Please set VITE_API_KEY in a .env.local file and restart the server.");
+    throw new Error("Gemini API key is not configured. Please set VITE_API_KEY in a .env file and restart the server.");
   }
   
-  const remedyListForPrompt = remedies.map(r => `- ${r.name} (${r.abbreviation})`).join('\n');
+  const remedyListForPrompt = remedies.map(r => r.abbreviation).join(', ');
 
   const prompt = `
     You are an expert in homeopathy. Based on the following symptoms, suggest the most relevant remedies.
     
     Symptoms: "${symptoms}"
     
-    Refer ONLY to the following list of available remedies and provide your answer as a JSON object with a single key "remedies" which contains an array of the remedy abbreviations. For example: {"remedies": ["ARN", "NUX-V"]}.
-    If no remedies seem appropriate, return an empty array within the JSON object. Do not include any explanation.
+    Refer ONLY to the following list of available remedy abbreviations and provide your answer as a JSON object with a single key "remedies" which contains an array of the remedy abbreviations. For example: {"remedies": ["ARN", "NUX-V"]}.
+    If no remedies seem appropriate, return an empty array within the JSON object. Do not include any explanation. Your response must be valid JSON.
 
-    Available Remedies:
+    Available Remedy Abbreviations:
     ${remedyListForPrompt}
   `;
 
@@ -59,10 +59,12 @@ export async function getAiSuggestions(symptoms: string, remedies: Remedy[]): Pr
 
     if (result && Array.isArray(result.remedies)) {
       const validAbbreviations = new Set(remedies.map(r => r.abbreviation));
-      // FIX: Refactored to use .filter() with a type guard for better type inference and clarity.
-      // This resolves a potential issue where TypeScript might not correctly narrow the type of `abbr` within the `reduce` callback.
+      // FIX: Refactored to use an if-statement to make the type guard more explicit for the TypeScript compiler, ensuring `abbr` is narrowed to a string before use.
       return result.remedies.filter((abbr: unknown): abbr is string => {
-        return typeof abbr === 'string' && validAbbreviations.has(abbr);
+        if (typeof abbr === 'string') {
+          return validAbbreviations.has(abbr);
+        }
+        return false;
       });
     }
     
@@ -83,10 +85,10 @@ export async function getRemedyInfo(remedyName: string): Promise<string> {
     throw new Error("Gemini API key is not configured.");
   }
 
-  const prompt = `Provide a concise list of the top 3-5 key indicating symptoms for the homeopathic remedy "${remedyName}".
-  Format the output as a simple, unstyled HTML string with a main heading for the remedy name and an unordered list for the symptoms.
+  const prompt = `Based on the provided Homoeopathic Materia Medica, provide a concise list of the top 3-5 key indicating symptoms for the homeopathic remedy "${remedyName}".
+  Format the output as a simple, unstyled HTML string with a main heading (h3) for the remedy name and an unordered list (ul/li) for the symptoms.
   For example: <h3>Arnica Montana</h3><ul><li>Sore, bruised feeling all over.</li><li>Fear of being touched or approached.</li><li>Bed feels too hard.</li></ul>
-  Do not include any other text, just the HTML.`;
+  Do not include any other text, introductory phrases, or markdown formatting, just the clean HTML output.`;
 
   try {
     const response = await ai.models.generateContent({

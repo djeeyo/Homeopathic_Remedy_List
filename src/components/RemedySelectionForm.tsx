@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import type { Remedy, Potency, ClientSelections } from '../types';
 import { POTENCIES } from '../types';
@@ -67,7 +68,7 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
-
+  
   // AI State
   const [symptoms, setSymptoms] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -92,7 +93,9 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
       
       const suggestedSrNos = new Set<string>();
       suggestedAbbrs.forEach(abbr => {
-        if (abbrToSrNoMap.has(abbr)) {
+        // FIX: Add a type guard to ensure `abbr` is a string. This resolves a TypeScript error where
+        // `abbr` was inferred as `unknown`, making it incompatible with `abbrToSrNoMap.has()`.
+        if (typeof abbr === 'string' && abbrToSrNoMap.has(abbr)) {
           suggestedSrNos.add(abbrToSrNoMap.get(abbr)!);
         }
       });
@@ -132,7 +135,7 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
     }
     setSortConfig({ key, direction });
   };
-
+  
   const handleRowMouseEnter = (remedy: Remedy, event: React.MouseEvent) => {
     if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
@@ -142,8 +145,7 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
         const top = rect.top + rect.height / 2; // Vertically center on the row
         const left = rect.right + 10;
         
-        // Adjust if tooltip would go off-screen
-        const tooltipWidth = 320; // Corresponds to max-w-sm
+        const tooltipWidth = 320; // Corresponds to w-80
         const adjustedLeft = (left + tooltipWidth > window.innerWidth) ? (rect.left - tooltipWidth - 10) : left;
 
         setActiveTooltip({ srNo: remedy.srNo, position: { top, left: adjustedLeft } });
@@ -162,7 +164,7 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
                     isFetchingRef.current.delete(remedy.srNo);
                 });
         }
-    }, 200);
+    }, 300); // 300ms delay before showing
   };
 
   const handleRowMouseLeave = () => {
@@ -184,18 +186,19 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
     return filtered.sort((a, b) => {
         const key = sortConfig.key;
         const direction = sortConfig.direction === 'asc' ? 1 : -1;
+        // Using localeCompare for robust string sorting
         return a[key].localeCompare(b[key]) * direction;
     });
-  }, [remedies, searchTerm, sortConfig]);
+}, [remedies, searchTerm, sortConfig]);
   
   const selectionCount = Object.keys(selections).length;
   const isFormValid = patientName.trim() !== '' && selectionCount > 0;
 
   return (
     <div className="space-y-6">
-      {activeTooltip && (
+       {activeTooltip && (
         <div
-            className="fixed z-50 max-w-sm p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl text-slate-300 animate-fade-in-fast"
+            className="fixed z-50 w-80 p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl text-slate-300 animate-fade-in-fast"
             style={{
                 top: `${activeTooltip.position.top}px`,
                 left: `${activeTooltip.position.left}px`,
@@ -332,7 +335,7 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
                           const rowClasses = [
                             'transition-all group',
                             isSelected ? 'bg-cyan-900/30' : 'hover:bg-slate-700/50',
-                            isAiSuggested ? 'ring-2 ring-inset ring-cyan-500/80 bg-slate-700/50' : ''
+                            isAiSuggested ? 'ring-2 ring-inset ring-cyan-500/80' : ''
                           ].filter(Boolean).join(' ');
 
                           return (
