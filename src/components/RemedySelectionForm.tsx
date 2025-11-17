@@ -95,8 +95,12 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
       suggestedAbbrs.forEach(abbr => {
         // FIX: Add a type guard to ensure `abbr` is a string. This resolves a TypeScript error where
         // `abbr` was inferred as `unknown`, making it incompatible with `abbrToSrNoMap.has()`.
+        // The logic is also made safer by checking the result of `.get()` before adding.
         if (typeof abbr === 'string' && abbrToSrNoMap.has(abbr)) {
-          suggestedSrNos.add(abbrToSrNoMap.get(abbr)!);
+          const srNo = abbrToSrNoMap.get(abbr);
+          if (srNo) {
+            suggestedSrNos.add(srNo);
+          }
         }
       });
       setAiSuggestions(suggestedSrNos);
@@ -167,10 +171,16 @@ export const RemedySelectionForm: React.FC<RemedySelectionFormProps> = ({
     }, 300); // 300ms delay before showing
   };
 
-  const handleRowMouseLeave = () => {
+  const handleRowMouseLeave = (event: React.MouseEvent) => {
     if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
     }
+    
+    // Check if the mouse is moving to a child element. This prevents the tooltip from hiding when moving between cells.
+    if (event.currentTarget.contains(event.relatedTarget as Node)) {
+        return;
+    }
+
     setActiveTooltip(null);
   };
 
